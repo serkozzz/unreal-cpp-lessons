@@ -30,11 +30,22 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Spawing")
 	TSubclassOf<class APickup> WhatToSpawn;
+
+	FTimerHandle SpawnTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawing")
+	float SpawnDelayRangeLow;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawing")
+	float SpawnDelayRangeHigh;
+
 private:
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawing", meta = (AllowPrivateAcces = true) )
+	UPROPERTY(VisibleAnywhere, Category = "Spawing", meta = (AllowPrivateAcces = true) )
 	class UBoxComponent* WhereToSpawn;
 
 	void SpawnPickup();
+
+	float SpawnDelay;
 	
 };
