@@ -10,14 +10,18 @@
 ABatteryPickup::ABatteryPickup()
 {
 	UStaticMeshComponent* mesh = GetMesh();
-	if (mesh == nullptr)
-	{ 
-		UE_LOG(LogTemp, Warning, TEXT("mesh is null"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("mesh is not null"));
-	}
-
 	GetMesh()->SetSimulatePhysics(true);
+	BatteryPower = 150.0f;
+}
+
+
+void ABatteryPickup::WasCollected_Implementation()
+{
+	Super::WasCollected_Implementation();
+	Destroy();
+}
+
+float ABatteryPickup::GetPower()
+{
+	return BatteryPower;
 }

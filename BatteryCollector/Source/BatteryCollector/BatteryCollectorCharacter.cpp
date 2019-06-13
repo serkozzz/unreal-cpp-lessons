@@ -3,6 +3,8 @@
 #include "BatteryCollector.h"
 #include "Kismet/HeadMountedDisplayFunctionLibrary.h"
 #include "BatteryCollectorCharacter.h"
+#include "Pickup.h"
+#include "BatteryPickup.h"
 
 //////////////////////////////////////////////////////////////////////////
 // ABatteryCollectorCharacter
@@ -38,8 +40,13 @@ ABatteryCollectorCharacter::ABatteryCollectorCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named MyCharacter (to avoid direct content references in C++)
+
+	CollectionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollectionSphere"));
+	CollectionSphere->AttachTo(RootComponent);
+	CollectionSphere->SetSphereRadius(200.0f);
+
+	InitialPower = 2000.0f;
+	CharacterPower = InitialPower;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -51,6 +58,8 @@ void ABatteryCollectorCharacter::SetupPlayerInputComponent(class UInputComponent
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+	PlayerInputComponent->BindAction("Collect", IE_Pressed, this, &ABatteryCollectorCharacter::CollectPickups);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ABatteryCollectorCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ABatteryCollectorCharacter::MoveRight);
@@ -79,7 +88,7 @@ void ABatteryCollectorCharacter::OnResetVR()
 
 void ABatteryCollectorCharacter::TouchStarted(ETouchIndex::Type FingerIndex, FVector Location)
 {
-		Jump();
+	Jump();
 }
 
 void ABatteryCollectorCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Location)
@@ -110,7 +119,15 @@ void ABatteryCollectorCharacter::MoveForward(float Value)
 		// get forward vector
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		AddMovementInput(Direction, Value);
+
+		for (TFieldIterator<UProperty> PropIt(APickup::StaticClass(), EFieldIteratorFlags::ExcludeSuper); PropIt; ++PropIt)
+		{
+			UProperty* Property = *PropIt;
+			UE_LOG(LogClass, Log, TEXT("%s"), *Property->GetName());
+
+		}
 	}
+
 }
 
 void ABatteryCollectorCharacter::MoveRight(float Value)
@@ -126,4 +143,53 @@ void ABatteryCollectorCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+}
+
+
+void ABatteryCollectorCharacter::CollectPickups()
+{
+	TArray<AActor*> CollectedActors;
+	CollectionSphere->GetOverlappingActors(CollectedActors);
+
+	float CollectedPower = 0;
+
+	for (int32 iCollected = 0; iCollected < CollectedActors.Num(); ++iCollected)
+	{
+		APickup* const TestPickup = Cast<APickup>(CollectedActors[iCollected]);
+		if (TestPickup && !TestPickup->IsPendingKill() && TestPickup->IsActive())
+		{
+			TestPickup->WasCollected();
+
+			ABatteryPickup* const TestBattery = Cast<ABatteryPickup>(TestPickup);
+			if (TestBattery)
+			{
+				CollectedPower += TestBattery->GetPower();
+			}
+			TestPickup->SetActive(false);
+		}
+	}
+
+	if (CollectedPower > 0)
+	{
+		UpdatePower(CollectedPower);
+	}
+}
+
+
+
+float ABatteryCollectorCharacter::GetInitialPower()
+{
+	return InitialPower;
+}
+
+
+float ABatteryCollectorCharacter::GetCharacterPower()
+{
+	return CharacterPower;
+}
+
+
+void ABatteryCollectorCharacter::UpdatePower(float PowerChange)
+{
+	CharacterPower += PowerChange;
 }
